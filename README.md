@@ -2,7 +2,7 @@ ip_blocker
 ===================
 
 
-Yet another firewall script to block country IP addresses. Support FirewallD (v0.4.3), tested on CentOS 7.
+Yet another firewall script to block country IP addresses. Tested on FirewallD (v0.4.3), CentOS 7.
 
 ----------
 
