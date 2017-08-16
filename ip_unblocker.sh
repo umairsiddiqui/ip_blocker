@@ -49,11 +49,11 @@ fi
 
 
 if [[ "$Countries" == "all" ]]; then
-    list_ipset=$(ipset list | grep Name | grep -o -e 'ban_ipv._.*_part_.*' )
+    list_ipset=$(firewall-cmd --get-ipsets | grep -e 'ban_ipv._.*_part_.*' )
 else
     for k in ${Countries//,/ }
     do
-        l=$(ipset list | grep Name | grep -o -e "ban_ipv._${k}_part_.*" )
+        l=$(firewall-cmd --get-ipsets | grep -o -e "ban_ipv._${k}_part_.*" )
         list_ipset="$list_ipset $l"
     done
 fi
@@ -61,13 +61,21 @@ fi
 for i in $list_ipset
 do
     echo removing ipset $i and its firewall rules
-    firewall-cmd --permanent --delete-ipset=$i &> /dev/null
-    ipset destroy $i &> /dev/null
-    firewall-cmd --permanent --remove-rich-rule="rule source ipset=$i drop"
-    firewall-cmd --reload 
+
+    if [[ "$i" =~ "ipv4" ]]
+    then 
+        firewall-cmd -q --permanent --remove-rich-rule="rule family=ipv4 source ipset=$i drop"
+    else
+        firewall-cmd -q --permanent --remove-rich-rule="rule family=ipv6 source ipset=$i drop"
+    fi
+
+    firewall-cmd -q --permanent --delete-ipset=$i &> /dev/null
+    rm -rf /etc/firewalld/ipsets/${i}.xml*
+    ipset --destroy $i &> /dev/null
+
 done
 
-
+firewall-cmd -q --reload 
 
 
 

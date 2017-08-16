@@ -110,25 +110,32 @@ function mk_banip_file(){
 function mk_ip_set() {
     ipv6=$1
     ip_set_name=$2
+    country=$3
     bname=$(basename $ip_set_name)
     replace_old=0
+    
 
     echo creating ipset $bname from $ip_set_name
 
     if [[ "x$ipv6" == "x0" ]]; then
         family="inet"
+        family2="ipv4"
     else
         family="inet6"
+        family2="ipv6"
     fi
 
     ipset list $bname &> /dev/null
 
     if [[ "x$?" == "x1" ]]
     then
-        firewall-cmd --permanent --new-ipset=$bname --type=hash:net --option=family=$family    
-        firewall-cmd --permanent --ipset=$bname --add-entries-from-file=$ip_set_name 
-        firewall-cmd --permanent --add-rich-rule="rule source ipset=$bname drop"
-        firewall-cmd --reload
+        firewall-cmd -q --permanent --new-ipset=$bname --type=hash:net --option=family=$family    
+        firewall-cmd -q --permanent --ipset=$bname --add-entries-from-file=$ip_set_name 
+        firewall-cmd -q --permanent --add-rich-rule="rule family=$family2 source ipset=$bname drop"
+        if [[ ! -z "$country" ]]
+        then
+            firewall-cmd -q --permanent --ipset=$bname --set-description="ipset to block ip addresses of $country" &> /dev/null
+        fi   
     else
         ipset_dump=$(mktemp -p $TMP_DIR dump.XXXXXX)
         mark4add=$(mktemp  -p $TMP_DIR mark4add.XXXXXX)
@@ -143,18 +150,17 @@ function mk_ip_set() {
         diff --old-line-format= --unchanged-line-format= --new-line-format='%L' $ipset_dump  $sorted_ip_set_name >  $mark4add
         if [ -s $mark4add ];
         then
-            firewall-cmd --permanent --ipset=$bname --add-entries-from-file=$mark4add
+            firewall-cmd -q --permanent --ipset=$bname --add-entries-from-file=$mark4add
         fi
 
         # remove entries which are not present in updated db
         diff --old-line-format= --unchanged-line-format= --new-line-format='%L' $sorted_ip_set_name $ipset_dump > $mark4rm
         if [ -s $mark4rm ]
         then 
-            firewall-cmd --permanent --ipset=$bname --remove-entries-from-file=$mark4rm
+            firewall-cmd -q --permanent --ipset=$bname --remove-entries-from-file=$mark4rm
         fi
 
-        firewall-cmd --permanent --add-rich-rule="rule source ipset=$bname drop"
-        firewall-cmd --reload
+        firewall-cmd -q --permanent --add-rich-rule="rule family=$family2 source ipset=$bname drop"
 
         rm -rf $ipset_dump
         rm -rf $mark4rm
@@ -168,7 +174,6 @@ function mk_ip_set() {
 chk_args "$1"
 pre_req
 dl_db
-
 chk_db
 ext_db
 
@@ -181,6 +186,7 @@ IP6_F=$DATA_DIR/ipv6.txt
 BANIP4_F=$DATA_DIR/ban_ipv4
 BANIP6_F=$DATA_DIR/ban_ipv6
 
+echo -e "==========================================================================="
 echo processing ip database
 grep -v -e 'geoname_id' $DATA_DIR/GeoLite2-City-Locations-en.csv | awk -F, -e '{printf("%s,%s\n",$1,$5)}' > $TAB1_F 
 grep -v -e 'geoname_id' $DATA_DIR/GeoLite2-City-Blocks-IPv4.csv | awk -F, -e '{printf("%s,%s\n",$1,$2)}' > $IP4_F 
@@ -208,30 +214,25 @@ do
     touch $cur_ban_ipv4_file
     touch $cur_ban_ipv6_file
 
-    mk_banip_file $REGION_F $IP4_F $cur_ban_ipv4_file &
-    mk_banip_file $REGION_F $IP6_F $cur_ban_ipv6_file &
-
-    for pid in $(jobs -p)
-    do
-        wait $pid
-    done 
+    mk_banip_file $REGION_F $IP4_F $cur_ban_ipv4_file 
+    mk_banip_file $REGION_F $IP6_F $cur_ban_ipv6_file 
     
     bname4=$(basename $cur_ban_ipv4_file .txt)
     bname6=$(basename $cur_ban_ipv6_file .txt)
 
     for ip4_set in $(ls $DATA_DIR/${bname4}_part_*);
     do
-        mk_ip_set 0 $ip4_set 
+        mk_ip_set 0 $ip4_set $k
     done 
 
     for ip6_set in $DATA_DIR/${bname6}_part_*;
     do
-        mk_ip_set 1 $ip6_set 
+        mk_ip_set 1 $ip6_set $k
     done 
 
 done
 
-firewall-cmd --reload 
+firewall-cmd -q --reload 
 sleep 5
 
 shopt -u nullglob
