@@ -231,17 +231,21 @@ do
 
 done
 
-firewall-cmd reload 
+firewall-cmd --reload 
+sleep 5
+
 shopt -u nullglob
 if [[ "x$display_banner" == "x1" ]]
 then
     echo ==================================================
-    echo -e "created following ipsets (each size 65536)"
-    echo firewall-cmd --get-ipsets | grep -e 'ban_ipv._.*_part_.*'
+    echo -e "created following ipsets (max-size 65536)":
+    echo
+    firewall-cmd --get-ipsets | grep -e 'ban_ipv._.*_part_.*'
     echo
     echo ==================================================
-    echo created following rich rules for firewalld 
-    echo firewall-cmd --list-rich-rules | grep -e 'ban_ipv._.*_part_.*'
+    echo created following rich rules for firewalld:
+    echo 
+    firewall-cmd --list-rich-rules | grep -e 'ban_ipv._.*_part_.*'
     echo
     echo ==================================================
 fi
