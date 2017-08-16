@@ -24,7 +24,7 @@
 
 
 
-TMP_DIR=./tmp
+TMP_DIR=/tmp
 DATA_DIR=$TMP_DIR/geoip
 Countries=""
 
@@ -76,7 +76,8 @@ function chk_db(){
 
 function dl_db( ) {
     echo downloading ip database 
-
+    rm -rf $TMP_DIR/GeoLite2-City-CSV.zip
+    rm -rf $TMP_DIR/GeoLite2-City-CSV.zip.md5
     wget -c -O $TMP_DIR/GeoLite2-City-CSV.zip  http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip  
     wget -c -O $TMP_DIR/GeoLite2-City-CSV.zip.md5 http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip.md5
 }
@@ -86,7 +87,7 @@ function ext_db(){
     rm -rf $DATA_DIR
     mkdir -p $DATA_DIR
 
-    unzip GeoLite2-City-CSV.zip -d $DATA_DIR &> /dev/null
+    unzip $TMP_DIR/GeoLite2-City-CSV.zip -d $DATA_DIR &> /dev/null
     mv $DATA_DIR/*/*.csv $DATA_DIR
 
 }
@@ -167,6 +168,7 @@ function mk_ip_set() {
 chk_args "$1"
 pre_req
 dl_db
+
 chk_db
 ext_db
 
@@ -229,6 +231,7 @@ do
 
 done
 
+firewall-cmd reload 
 shopt -u nullglob
 if [[ "x$display_banner" == "x1" ]]
 then
